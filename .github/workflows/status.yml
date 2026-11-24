@@ -1,0 +1,31 @@
+name: Sede no ar?
+on:
+  schedule: [{ cron: "*/10 * * * *" }]
+  workflow_dispatch:
+jobs:
+  checar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Site e vídeo respondem
+        run: |
+          falhou=""
+          for url in https://sedevirtualantana.tech/ https://video.sedevirtualantana.tech/; do
+            ok=""
+            for i in 1 2 3; do
+              c=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$url" || true)
+              [ "$c" = "200" ] && ok=1 && break
+              sleep 20
+            done
+            [ -z "$ok" ] && falhou="$falhou $url($c)"
+          done
+          if [ -n "$falhou" ]; then
+            echo "FORA DO AR:$falhou"
+            if [ -n "${{ secrets.TELEGRAM_BOT_TOKEN }}" ]; then
+              curl -s "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+                --data-urlencode "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
+                --data-urlencode "text=⚠️ Sede Virtual Lantana fora do ar:$falhou" > /dev/null
+            fi
+            exit 1
+          fi
+          echo "tudo no ar"
